@@ -2,7 +2,6 @@ name: CI/CD for Vite React App
 
 # Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events for all branches
   push:
     branches: ["main"]
   pull_request:
@@ -19,16 +18,20 @@ concurrency:
   group: "pages"
   cancel-in-progress: true
 
+env:
+  VITE_APP_ID: ${{ secrets.VITE_APP_ID }}
+
 jobs:
   # JOB 1: Test - Runs on every push and PR
   test:
     name: Run Tests and Build
-    # This job can run on Linux, macOS, or Windows
     runs-on: ubuntu-latest
+    env:
+      VITE_APP_ID: ${{ secrets.VITE_APP_ID }}
 
     strategy:
       matrix:
-        node-version: [22.x] # Test against multiple Node.js versions
+        node-version: [22.x]
 
     steps:
       # 1. Checkout the code from the repository
@@ -46,21 +49,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 4. Run linting (optional - add a lint script to package.json first)
-      # - name: Run Linter
-      #   run: npm run lint
-
-      # 5. Run tests
-      #- name: Run Tests
-      #  run: npm test -- --watch=false --silent
-      # The flags prevent interactive mode and reduce output noise.
-
-      # 6. Build the project for production
+      # 4. Build the project for production (with env variable)
       - name: Build Project
         run: npm run build
+        env:
+          VITE_APP_ID: ${{ secrets.VITE_APP_ID }}
 
-      # 7. (Optional) Upload the production build as an artifact
-      # Useful for debugging the build step
+      # 5. Upload the production build as an artifact
       - name: Upload production build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -70,9 +65,11 @@ jobs:
   # JOB 2: Deploy - Only runs on push to the main branch after test succeeds
   deploy:
     name: Deploy to GitHub Pages
-    needs: test # This ensures deploy only runs if the test job passes
-    if: github.ref == 'refs/heads/main' # Only run on the main branch
+    needs: test
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    env:
+      VITE_APP_ID: ${{ secrets.VITE_APP_ID }}
 
     environment:
       name: github-pages
@@ -94,19 +91,21 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # 4. Build the project (this will use the base path from vite.config.js)
+      # 4. Build the project with the environment variable
       - name: Build
         run: npm run build
+        env:
+          VITE_APP_ID: ${{ secrets.VITE_APP_ID }}
 
       # 5. Setup GitHub Pages
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      # 6. Upload the built files (from the 'dist' folder) as an artifact
+      # 6. Upload the built files
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "./dist" # Vite's default build output directory
+          path: "./dist"
 
       # 7. Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
